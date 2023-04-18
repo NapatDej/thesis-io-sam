@@ -89,4 +89,3 @@ if __name__ == '__main__':
     validate_status = validate(df = df_producer,target=target)
     print(f"\n\n\n {validate_status}")
     df_purchaser.to_excel('purchaser.xlsx')
-    a =3
