@@ -4,7 +4,7 @@ import os
 from typing import Literal
 
 def load_data(file_name):
-    raw_df = pd.read_excel(file_name)
+    raw_df = pd.read_excel(f'resource/{file_name}',skiprows=1)
     raw_df.columns = raw_df.columns.str.lower()
     cost = []
     for idx in raw_df.index:
@@ -14,13 +14,17 @@ def load_data(file_name):
     
     return raw_df
 
-def etl(raw_df,target: Literal['purchaser','cost']):
+def etl(raw_df,target):
+    if target == 'producer':
+        target_ = 'cost'
+    elif target == 'purchaser':
+        target_ = 'purchaser'
     all_col = sorted(list(set(raw_df['column'].to_list())))
     df = pd.DataFrame(columns = all_col)
 
     # Transform
     for col in df.columns:
-        df[col] = list(raw_df.loc[raw_df['column']==int(col),target])
+        df[col] = list(raw_df.loc[raw_df['column']==int(col),target_])
 
     # Rename columns
     df.columns = df.columns.astype(str)
@@ -77,15 +81,34 @@ def validate(df,target):
 
     return validate_status
 
+def transform_to_io(df_purchaser):
+    df_purchaser = df_purchaser.drop(['190','209','210'])
+    df_purchaser = df_purchaser.drop(columns=['190','309','310','409','509','600','700'])
+    df_purchaser.to_excel('purchaser_2010.xlsx')
+    df_a = df_purchaser.iloc[0:-4, 0:-13]
+    df_value_add = df_purchaser.iloc[-4:, 0:-13]
+    df_final_demand = df_purchaser.iloc[0:-4, -13:-7]
+    df_import = df_purchaser.iloc[0:-4, -7:-3].transpose()*-1
+    df_indirect_tax = df_purchaser.iloc[0:-4, -3:].transpose()*-1
+    df_io = pd.concat([df_a,df_value_add,df_import,df_indirect_tax])
+    df_io = df_io.join(df_final_demand).fillna(0)
+
+    return df_io
+
 
 if __name__ == '__main__':
-    raw_df = load_data(file_name = "DataIO2015x16.xlsx")
+    raw_df = load_data(file_name = "2 -- 16 sectors (2010) -- Multiplier - Exercise.xlsx")
 
+    # Create Purchaser Table
     df_purchaser,target = etl(raw_df = raw_df,target='purchaser')
     validate_status = validate(df = df_purchaser,target=target)
     print(f"\n\n\n {validate_status}")
 
-    df_producer,target = etl(raw_df = raw_df,target='cost')
+    # Create Producer Table
+    df_producer,target = etl(raw_df = raw_df,target='producer')
     validate_status = validate(df = df_producer,target=target)
     print(f"\n\n\n {validate_status}")
-    df_purchaser.to_excel('purchaser.xlsx')
+
+    # Transform to IO table
+    df_io = transform_to_io(df_purchaser)
+    df_producer.to_excel('producer.xlsx')
